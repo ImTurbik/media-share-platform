@@ -216,3 +216,7 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+backend/media/
+backend/.python-version
+backend/.venv/
