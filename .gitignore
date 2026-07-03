@@ -220,3 +220,5 @@ __marimo__/
 backend/media/
 backend/.python-version
 backend/.venv/
+
+.vscode/
