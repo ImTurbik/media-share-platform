@@ -13,7 +13,7 @@ const onFileChange = (event) => {
 }
 
 const handlePublish = () => {
-  alert(`Публикуем! Автор: ${authorName.value}, Текст: ${content.value}, Файл: ${selectedFile.value ? selectedFile.value.name : 'Нет'}`)
+  alert(`Публикуем!\nАвтор: ${authorName.value}\nТекст: ${content.value}\nФайл: ${selectedFile.value ? selectedFile.value.name : 'Нет'}`)
 }
 </script>
 

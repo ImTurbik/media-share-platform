@@ -1,5 +1,8 @@
 
 FROM node:20-alpine
 WORKDIR /app
-
-CMD ["node", "-e", "setInterval(() => {}, 1000)"]
+COPY package*.json ./
+RUN npm install
+COPY . .
+EXPOSE 5137
+CMD ["npm", "run", "dev", "--", "--host"]
