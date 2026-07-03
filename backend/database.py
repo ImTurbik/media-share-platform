@@ -1,12 +1,13 @@
 from datetime import datetime
 from typing import List, Optional
-from sqlalchemy import create_engine, ForeignKey, String, Text, DateTime, Integer
-from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship, sessionmaker
+from sqlalchemy import ForeignKey, String, Text, DateTime, Integer
+from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
+from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
 
-DATABASE_URL = "postgresql://user:password@db:5432/media_db"
+DATABASE_URL = "postgresql+asyncpg://user:password@db:5432/media_db"
 
-engine = create_engine(DATABASE_URL)
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+engine = create_async_engine(DATABASE_URL, echo=True)
+AsyncSessionLocal = async_sessionmaker(bind=engine, class_=AsyncSession, expire_on_commit=False)
 
 class Base(DeclarativeBase):
     pass
