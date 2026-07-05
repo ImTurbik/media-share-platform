@@ -4,6 +4,7 @@ import { ref, inject } from 'vue'
 const authorName = inject('userNickname')
 const content = ref('')
 const selectedFile = ref(null)
+const isLoading = ref(false)
 
 const onFileChange = (event) => {
   const files = event.target.files
@@ -12,9 +13,45 @@ const onFileChange = (event) => {
   }
 }
 
-const handlePublish = () => {
-  alert(`Публикуем!\nАвтор: ${authorName.value}\nТекст: ${content.value}\nФайл: ${selectedFile.value ? selectedFile.value.name : 'Нет'}`)
+const handlePublish = async () => {
+  if (isLoading.value) return
+  
+  try {
+    isLoading.value = true
+    
+    const formData = new FormData()
+    formData.append('author_name', authorName.value)
+    if (content.value) formData.append('content', content.value)
+    if (selectedFile.value) formData.append('file', selectedFile.value)
+
+    const response = await fetch('http://localhost:8000/api/posts', {
+      method: 'POST',
+      body: formData
+    })
+
+    if (!response.ok) {
+      throw new Error('Ошибка при создании публикации')
+    }
+
+    const data = await response.json()
+    
+    if (data.status === 'success') {
+      // очищаем форму после отправки
+      content.value = ''
+      selectedFile.value = null
+      alert('Пост успешно опубликован')
+    }
+  } catch (error) {
+    console.error(error)
+    alert('Не удалось отправить пост')
+  } finally {
+    isLoading.value = false
+  }
 }
+
+// const handlePublish = () => {
+//   alert(`Публикуем!\nАвтор: ${authorName.value}\nТекст: ${content.value}\nФайл: ${selectedFile.value ? selectedFile.value.name : 'Нет'}`)
+// }
 </script>
 
 <template>
@@ -45,9 +82,10 @@ const handlePublish = () => {
 
         <button 
           type="submit"
-          class="w-full bg-emerald-500 hover:bg-emerald-600 text-zinc-950 font-bold py-2.5 rounded-lg text-sm transition-colors shadow-lg shadow-emerald-500/10 cursor-pointer"
+          :disabled="isLoading"
+          class="w-full bg-emerald-500 hover:bg-emerald-600 disabled:bg-zinc-700 disabled:text-zinc-500 text-zinc-950 font-bold py-2.5 rounded-lg text-sm transition-colors shadow-lg shadow-emerald-500/10 cursor-pointer disabled:cursor-not-allowed"
         >
-          Опубликовать в ленту
+          {{ isLoading ? 'Публикация...' : 'Опубликовать в ленту' }}
         </button>
       </form>
     </section>

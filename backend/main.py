@@ -1,8 +1,12 @@
 import os
 from datetime import datetime
+from pathlib import Path
 from typing import Optional
+
 from fastapi import FastAPI, UploadFile, File, Form, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+
 from sqlalchemy.orm import Session
 from sqlalchemy import select
 
@@ -18,8 +22,10 @@ app.add_middleware(
     allow_headers = ["*"],
 )
 
-MEDIA_DIR = "media"
-os.makedirs(MEDIA_DIR, exist_ok=True)
+BASE_DIR = Path(__file__).resolve().parent
+MEDIA_DIR = BASE_DIR / "media"
+MEDIA_DIR.mkdir(parents=True, exist_ok=True)
+app.mount("/media", StaticFiles(directory=str(MEDIA_DIR)), name="media")
 
 @app.on_event("startup")
 async def startup_event():
@@ -46,11 +52,12 @@ async def create_post(
     image_path = None
 
     if file:
-        file_location = f"{MEDIA_DIR}/{datetime.utcnow().timestamp()}_{file.filename}"
+        file_name = f"{datetime.utcnow().timestamp()}_{file.filename}"
+        file_location = MEDIA_DIR / file_name
         file_content = await file.read()
         with open(file_location, "wb+") as file_object:
             file_object.write(file_content)
-        image_path = file_location
+        image_path = f"/media/{file_name}"
         
     new_post = database.Post(
         author_name=author_name,

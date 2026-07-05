@@ -1,24 +1,36 @@
 <script setup>
-import { ref } from 'vue'
+import { ref, onMounted } from 'vue'
 
-const posts = ref([
-  {
-    id: 1,
-    author_name: "author1",
-    content: "Осторожно! Здесь бывает экстремистский юмор...",
-    image_path: "https://cdn.discordapp.com/attachments/833789145260359691/1522591228686766251/image.png?ex=6a4baa15&is=6a4a5895&hm=c79342ac400cefe28acf07cc612c36f95799bc7e04544a3c9ca68177feb33ca3&",
-    likes_count: 228,
-    created_at: "15 минут назад"
-  },
-  {
-    id: 2,
-    author_name: "author2",
-    content: null,
-    image_path: "https://cdn.discordapp.com/attachments/833789145260359691/1522591254221950976/image.png?ex=6a4baa1b&is=6a4a589b&hm=1561d380179e1f5fbdddf5114f452669b25039913614fc59c710d4c8a7ba09df&",
-    likes_count: 123,
-    created_at: "2 часа назад"
+const posts = ref([])
+const isLoading = ref(true)
+
+const getImageUrl = (imagePath) => {
+  if (!imagePath) return ''
+  if (/^https?:\/\//i.test(imagePath)) return imagePath
+  if (imagePath.startsWith('/')) return `http://localhost:8000${imagePath}`
+  return `http://localhost:8000/${imagePath}`
+}
+
+const fetchPosts = async () => {
+  try {
+    isLoading.value = true
+    const response = await fetch('http://localhost:8000/api/posts')
+    if (!response.ok) {
+      throw new Error('Не удалось загрузить ленту')
+    }
+    const data = await response.json()
+    posts.value = data
+  } catch (error) {
+    console.error(error)
+  } finally {
+    isLoading.value = false
   }
-])
+}
+
+onMounted(() => {
+  fetchPosts()
+})
+
 </script>
 
 <template>
@@ -34,7 +46,7 @@ const posts = ref([
     >
       <div class="px-4 py-3 bg-zinc-900/50 border-b border-zinc-800 flex justify-between items-center">
         <span class="font-bold text-emerald-400 text-sm">@{{ post.author_name }}</span>
-        <span class="text-xs text-zinc-500">{{ post.created_at }}</span>
+        <span class="text-xs text-zinc-500">{{ new Date(post.created_at).toLocaleDateString() }}</span>
       </div>
       
       <div v-if="post.content" class="p-4 text-zinc-200 text-sm leading-relaxed whitespace-pre-line">
@@ -42,7 +54,7 @@ const posts = ref([
       </div>
       
       <div v-if="post.image_path" class="border-t border-zinc-800 bg-zinc-950 flex justify-center items-center">
-        <img :src="post.image_path" alt="Мем" class="w-full h-auto max-h-125 object-contain" />
+        <img :src="getImageUrl(post.image_path)" alt="Картинка" class="w-full h-auto max-h-125 object-contain" />
       </div>
       
       <div class="px-4 py-2.5 bg-zinc-900/40 border-t border-zinc-800 flex gap-6 text-xs font-bold text-zinc-400">
