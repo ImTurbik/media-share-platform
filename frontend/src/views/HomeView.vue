@@ -6,15 +6,15 @@ const posts = ref([
     id: 1,
     author_name: "author1",
     content: "Осторожно! Здесь бывает экстремистский юмор...",
-    image_path: "https://cdn.discordapp.com/attachments/833789145260359691/1522591228686766251/image.png?ex=6a490715&is=6a47b595&hm=febb585a7e96ac210d43f02fd26662c3fb179b865b0a5d920ca04a513b3b8a09&",
+    image_path: "https://cdn.discordapp.com/attachments/833789145260359691/1522591228686766251/image.png?ex=6a4baa15&is=6a4a5895&hm=c79342ac400cefe28acf07cc612c36f95799bc7e04544a3c9ca68177feb33ca3&",
     likes_count: 228,
     created_at: "15 минут назад"
   },
   {
     id: 2,
     author_name: "author2",
-    content: "<Пустой пост>",
-    image_path: null,
+    content: null,
+    image_path: "https://cdn.discordapp.com/attachments/833789145260359691/1522591254221950976/image.png?ex=6a4baa1b&is=6a4a589b&hm=1561d380179e1f5fbdddf5114f452669b25039913614fc59c710d4c8a7ba09df&",
     likes_count: 123,
     created_at: "2 часа назад"
   }
