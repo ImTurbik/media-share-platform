@@ -1,5 +1,6 @@
 <script setup>
 import { inject, ref } from 'vue'
+import { API_BASE_URL } from '@/config'
 
 const authorName = inject('userNickname')
 const content = ref('')
@@ -29,7 +30,7 @@ const handlePublish = async () => {
     if (content.value) formData.append('content', content.value)
     if (selectedFile.value) formData.append('file', selectedFile.value)
 
-    const response = await fetch('http://localhost:8000/api/posts', {
+    const response = await fetch(`${API_BASE_URL}/api/posts`, {
       method: 'POST',
       body: formData
     })

@@ -1,5 +1,6 @@
 <script setup>
 import { inject, onMounted, reactive, ref } from 'vue'
+import { API_BASE_URL } from '@/config'
 
 const posts = ref([])
 const isLoading = ref(true)
@@ -13,8 +14,8 @@ const commentTexts = reactive({})
 const getImageUrl = (imagePath) => {
   if (!imagePath) return ''
   if (/^https?:\/\//i.test(imagePath)) return imagePath
-  if (imagePath.startsWith('/')) return `http://localhost:8000${imagePath}`
-  return `http://localhost:8000/${imagePath}`
+  if (imagePath.startsWith('/')) return `${API_BASE_URL}${imagePath}`
+  return `${API_BASE_URL}/${imagePath}`
 }
 
 const getCurrentNickname = () => userNickname.value?.trim() || ''
@@ -33,7 +34,7 @@ const normalizePost = (post) => ({
 const fetchPosts = async () => {
   try {
     isLoading.value = true
-    const response = await fetch('http://localhost:8000/api/posts')
+    const response = await fetch(`${API_BASE_URL}/api/posts`)
     if (!response.ok) {
       throw new Error('Не удалось загрузить ленту')
     }
@@ -59,7 +60,7 @@ const handleLike = async (post) => {
     formData.append('author_name', currentNickname)
 
     const endpoint = hasLiked(post) ? 'unlike' : 'like'
-    const response = await fetch(`http://localhost:8000/api/posts/${post.id}/${endpoint}`, {
+    const response = await fetch(`${API_BASE_URL}/api/posts/${post.id}/${endpoint}`, {
       method: 'POST',
       body: formData,
     })
@@ -95,7 +96,7 @@ const handleAddComment = async (post) => {
     formData.append('author_name', currentNickname)
     formData.append('text', text)
 
-    const response = await fetch(`http://localhost:8000/api/posts/${post.id}/comments`, {
+    const response = await fetch(`${API_BASE_URL}/api/posts/${post.id}/comments`, {
       method: 'POST',
       body: formData,
     })
@@ -126,7 +127,7 @@ const handleDeleteComment = async (post, comment) => {
     deletingCommentId.value = comment.id
 
     const response = await fetch(
-      `http://localhost:8000/api/posts/${post.id}/comments/${comment.id}?author_name=${encodeURIComponent(currentNickname)}`,
+      `${API_BASE_URL}/api/posts/${post.id}/comments/${comment.id}?author_name=${encodeURIComponent(currentNickname)}`,
       {
         method: 'DELETE',
       },
@@ -206,7 +207,12 @@ onMounted(() => {
             @click="toggleComments(post.id)"
           >
             <span>💬</span>
-            <span>Комментарии</span>
+            <span>
+              Комментарии
+              <template v-if="post.comments && post.comments.length">
+                ({{ post.comments.length }})
+              </template>
+            </span>
           </button>
         </div>
 
