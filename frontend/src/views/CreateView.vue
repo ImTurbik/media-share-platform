@@ -1,10 +1,12 @@
 <script setup>
-import { ref, inject } from 'vue'
+import { inject, ref } from 'vue'
 
 const authorName = inject('userNickname')
 const content = ref('')
 const selectedFile = ref(null)
 const isLoading = ref(false)
+const statusMessage = ref('')
+const statusIsError = ref(false)
 
 const onFileChange = (event) => {
   const files = event.target.files
@@ -15,10 +17,13 @@ const onFileChange = (event) => {
 
 const handlePublish = async () => {
   if (isLoading.value) return
-  
+
+  statusMessage.value = ''
+  statusIsError.value = false
+
   try {
     isLoading.value = true
-    
+
     const formData = new FormData()
     formData.append('author_name', authorName.value)
     if (content.value) formData.append('content', content.value)
@@ -34,31 +39,28 @@ const handlePublish = async () => {
     }
 
     const data = await response.json()
-    
+
     if (data.status === 'success') {
-      // очищаем форму после отправки
       content.value = ''
       selectedFile.value = null
-      alert('Пост успешно опубликован')
+      statusMessage.value = 'Пост успешно опубликован'
+      statusIsError.value = false
     }
   } catch (error) {
     console.error(error)
-    alert('Не удалось отправить пост')
+    statusMessage.value = 'Не удалось отправить пост'
+    statusIsError.value = true
   } finally {
     isLoading.value = false
   }
 }
-
-// const handlePublish = () => {
-//   alert(`Публикуем!\nАвтор: ${authorName.value}\nТекст: ${content.value}\nФайл: ${selectedFile.value ? selectedFile.value.name : 'Нет'}`)
-// }
 </script>
 
 <template>
   <div class="max-w-xl mx-auto py-4">
     <section class="bg-zinc-900 border border-zinc-800 rounded-xl p-4 sm:p-6 shadow-xl">
       <h2 class="text-xl font-bold text-white mb-4 tracking-tight">Создать публикацию</h2>
-      
+
       <form @submit.prevent="handlePublish" class="space-y-4">
         <div>
           <label class="block text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-1">Текст поста</label>
@@ -87,6 +89,10 @@ const handlePublish = async () => {
         >
           {{ isLoading ? 'Публикация...' : 'Опубликовать в ленту' }}
         </button>
+
+        <p v-if="statusMessage" :class="statusIsError ? 'text-rose-400' : 'text-emerald-400'" class="text-xs font-medium text-center">
+          {{ statusMessage }}
+        </p>
       </form>
     </section>
   </div>

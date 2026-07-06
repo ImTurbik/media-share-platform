@@ -27,8 +27,19 @@ MEDIA_DIR.mkdir(parents=True, exist_ok=True)
 app.mount("/media", StaticFiles(directory=str(MEDIA_DIR)), name="media")
 
 
+def serialize_comment(comment: database.Comment) -> dict:
+    return {
+        "id": comment.id,
+        "post_id": comment.post_id,
+        "author_name": comment.author_name,
+        "text": comment.text,
+        "created_at": comment.created_at,
+    }
+
+
 def serialize_post(post: database.Post) -> dict:
     liked_by = [like.author_name for like in sorted(post.likes, key=lambda like: like.created_at)]
+    comments = [serialize_comment(comment) for comment in sorted(post.comments, key=lambda comment: comment.created_at)]
     return {
         "id": post.id,
         "author_name": post.author_name,
@@ -38,14 +49,15 @@ def serialize_post(post: database.Post) -> dict:
         "tags": post.tags,
         "likes_count": post.likes_count,
         "liked_by": liked_by,
+        "comments": comments,
         "created_at": post.created_at,
     }
 
 
-async def fetch_post_with_likes(db, post_id: int):
+async def fetch_post_with_relations(db, post_id: int):
     statement = (
         select(database.Post)
-        .options(selectinload(database.Post.likes))
+        .options(selectinload(database.Post.likes), selectinload(database.Post.comments))
         .where(database.Post.id == post_id)
     )
     result = await db.execute(statement)
@@ -61,7 +73,11 @@ async def startup_event():
 @app.get("/api/posts")
 async def get_posts():
     async with database.AsyncSessionLocal() as db:
-        statement = select(database.Post).options(selectinload(database.Post.likes)).order_by(database.Post.created_at.desc())
+        statement = (
+            select(database.Post)
+            .options(selectinload(database.Post.likes), selectinload(database.Post.comments))
+            .order_by(database.Post.created_at.desc())
+        )
         result = await db.execute(statement)
         posts = result.scalars().all()
         return [serialize_post(post) for post in posts]
@@ -93,7 +109,21 @@ async def create_post(
         db.add(new_post)
         await db.commit()
         await db.refresh(new_post)
-        return {"status": "success", "post": serialize_post(new_post)}
+        return {
+            "status": "success",
+            "post": {
+                "id": new_post.id,
+                "author_name": new_post.author_name,
+                "title": new_post.title,
+                "content": new_post.content,
+                "image_path": new_post.image_path,
+                "tags": new_post.tags,
+                "likes_count": new_post.likes_count,
+                "liked_by": [],
+                "comments": [],
+                "created_at": new_post.created_at,
+            },
+        }
 
 
 @app.post("/api/posts/{post_id}/like")
@@ -103,7 +133,7 @@ async def like_post(post_id: int, author_name: str = Form(...)):
         raise HTTPException(status_code=400, detail="Ник не может быть пустым")
 
     async with database.AsyncSessionLocal() as db:
-        post = await fetch_post_with_likes(db, post_id)
+        post = await fetch_post_with_relations(db, post_id)
         if not post:
             raise HTTPException(status_code=404, detail="Пост не найден")
 
@@ -133,7 +163,7 @@ async def unlike_post(post_id: int, author_name: str = Form(...)):
         raise HTTPException(status_code=400, detail="Ник не может быть пустым")
 
     async with database.AsyncSessionLocal() as db:
-        post = await fetch_post_with_likes(db, post_id)
+        post = await fetch_post_with_relations(db, post_id)
         if not post:
             raise HTTPException(status_code=404, detail="Пост не найден")
 
@@ -160,7 +190,7 @@ async def unlike_post(post_id: int, author_name: str = Form(...)):
 @app.get("/api/posts/{post_id}/likes")
 async def get_likes(post_id: int):
     async with database.AsyncSessionLocal() as db:
-        post = await fetch_post_with_likes(db, post_id)
+        post = await fetch_post_with_relations(db, post_id)
         if not post:
             raise HTTPException(status_code=404, detail="Пост не найден")
 
@@ -170,8 +200,15 @@ async def get_likes(post_id: int):
 
 @app.post("/api/posts/{post_id}/comments")
 async def create_comment(post_id: int, author_name: str = Form(...), text: str = Form(...)):
+    author_name = author_name.strip()
+    text = text.strip()
+    if not author_name:
+        raise HTTPException(status_code=400, detail="Ник не может быть пустым")
+    if not text:
+        raise HTTPException(status_code=400, detail="Комментарий не может быть пустым")
+
     async with database.AsyncSessionLocal() as db:
-        post = await db.get(database.Post, post_id)
+        post = await fetch_post_with_relations(db, post_id)
         if not post:
             raise HTTPException(status_code=404, detail="Пост не найден")
 
@@ -184,7 +221,30 @@ async def create_comment(post_id: int, author_name: str = Form(...), text: str =
         db.add(new_comment)
         await db.commit()
         await db.refresh(new_comment)
-        return {"status": "success", "comment": new_comment}
+        return {"status": "success", "comment": serialize_comment(new_comment)}
+
+
+@app.delete("/api/posts/{post_id}/comments/{comment_id}")
+async def delete_comment(post_id: int, comment_id: int, author_name: str):
+    author_name = author_name.strip()
+    if not author_name:
+        raise HTTPException(status_code=400, detail="Ник не может быть пустым")
+
+    async with database.AsyncSessionLocal() as db:
+        statement = select(database.Comment).where(
+            database.Comment.id == comment_id,
+            database.Comment.post_id == post_id,
+        )
+        result = await db.execute(statement)
+        comment = result.scalar_one_or_none()
+        if not comment:
+            raise HTTPException(status_code=404, detail="Комментарий не найден")
+        if comment.author_name != author_name:
+            raise HTTPException(status_code=403, detail="Можно удалять только свои комментарии")
+
+        await db.delete(comment)
+        await db.commit()
+        return {"status": "success"}
 
 
 @app.get("/api/posts/{post_id}/comments")
@@ -197,4 +257,4 @@ async def get_comments(post_id: int):
         statement = select(database.Comment).where(database.Comment.post_id == post_id).order_by(database.Comment.created_at.asc())
         result = await db.execute(statement)
         comments = result.scalars().all()
-        return comments
+        return [serialize_comment(comment) for comment in comments]
