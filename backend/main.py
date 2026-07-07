@@ -107,6 +107,13 @@ async def create_post(
     content: Optional[str] = Form(None),
     file: Optional[UploadFile] = File(None),
 ):
+    author_name = author_name.strip()
+    content = content.strip() if content else None
+    if not author_name:
+        raise HTTPException(status_code=400, detail="Имя автора не указано")
+    if not content and not file:
+        raise HTTPException(status_code=400, detail="Пустой пост нельзя публиковать")
+
     image_path = None
 
     if file:

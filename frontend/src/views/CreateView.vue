@@ -22,12 +22,19 @@ const handlePublish = async () => {
   statusMessage.value = ''
   statusIsError.value = false
 
+  const trimmedContent = content.value.trim()
+  if (!trimmedContent && !selectedFile.value) {
+    statusMessage.value = 'Нельзя отправить пустой пост'
+    statusIsError.value = true
+    return
+  }
+
   try {
     isLoading.value = true
 
     const formData = new FormData()
     formData.append('author_name', authorName.value)
-    if (content.value) formData.append('content', content.value)
+    if (trimmedContent) formData.append('content', trimmedContent)
     if (selectedFile.value) formData.append('file', selectedFile.value)
 
     const response = await fetch(`${API_BASE_URL}/api/posts`, {
