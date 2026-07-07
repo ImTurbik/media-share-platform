@@ -83,6 +83,24 @@ async def get_posts():
         return [serialize_post(post) for post in posts]
 
 
+@app.get("/api/users/{author_name}/posts")
+async def get_posts_by_author(author_name: str):
+    author_name = author_name.strip()
+    if not author_name:
+        raise HTTPException(status_code=400, detail="Ник не может быть пустым")
+
+    async with database.AsyncSessionLocal() as db:
+        statement = (
+            select(database.Post)
+            .options(selectinload(database.Post.likes), selectinload(database.Post.comments))
+            .where(database.Post.author_name == author_name)
+            .order_by(database.Post.created_at.desc())
+        )
+        result = await db.execute(statement)
+        posts = result.scalars().all()
+        return [serialize_post(post) for post in posts]
+
+
 @app.post("/api/posts")
 async def create_post(
     author_name: str = Form(...),
@@ -124,6 +142,24 @@ async def create_post(
                 "created_at": new_post.created_at,
             },
         }
+
+
+@app.delete("/api/posts/{post_id}")
+async def delete_post(post_id: int, author_name: str):
+    author_name = author_name.strip()
+    if not author_name:
+        raise HTTPException(status_code=400, detail="РќРёРє РЅРµ РјРѕР¶РµС‚ Р±С‹С‚СЊ РїСѓСЃС‚С‹Рј")
+
+    async with database.AsyncSessionLocal() as db:
+        post = await db.get(database.Post, post_id)
+        if not post:
+            raise HTTPException(status_code=404, detail="РџРѕСЃС‚ РЅРµ РЅР°Р№РґРµРЅ")
+        if post.author_name != author_name:
+            raise HTTPException(status_code=403, detail="РњРѕР¶РЅРѕ СѓРґР°Р»СЏС‚СЊ С‚РѕР»СЊРєРѕ СЃРІРѕРё РїРѕСЃС‚С‹")
+
+        await db.delete(post)
+        await db.commit()
+        return {"status": "success"}
 
 
 @app.post("/api/posts/{post_id}/like")

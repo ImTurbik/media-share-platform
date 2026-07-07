@@ -52,10 +52,15 @@ const changeNickname = () => {
             О проекте
           </RouterLink>
 
+          <!-- КНОПКА ПЕРЕПРАВКИ НА СТРАНИЦУ ПРОФИЛЯ -->
+          <RouterLink to="/profile" class="border-l border-zinc-800 pl-4 nav-link text-zinc-400 hover:text-emerald-400 font-medium transition-colors">
+            Профиль
+          </RouterLink>
+
           <!-- КНОПКА СМЕНЫ НИКА -->
           <button
             @click="changeNickname"
-            class="flex items-center gap-1.5 pl-4 border-l border-zinc-800 text-zinc-400 hover:text-emerald-400 font-medium transition-colors text-sm cursor-pointer"
+            class="flex items-center gap-1.5 text-zinc-400 hover:text-emerald-400 font-medium transition-colors text-sm cursor-pointer"
           >
             <span>@{{ userNickname }}</span>
             <span class="text-xs opacity-60">✏️</span>
