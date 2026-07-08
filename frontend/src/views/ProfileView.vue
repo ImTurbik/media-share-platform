@@ -7,8 +7,26 @@ const userNickname = inject('userNickname', ref(''))
 const profilePosts = ref([])
 const isLoading = ref(true)
 const deletingPostId = ref(null)
+const copiedPostId = ref(null)
+let copyResetTimer = null
 
 const getCurrentNickname = () => userNickname.value?.trim() || ''
+
+const copyPostLink = async (post) => {
+  const postLink = `${window.location.origin}/post/${post.id}`
+  try {
+    await navigator.clipboard.writeText(postLink)
+    copiedPostId.value = post.id
+    if (copyResetTimer) {
+      clearTimeout(copyResetTimer)
+    }
+    copyResetTimer = setTimeout(() => {
+      copiedPostId.value = null
+    }, 1500)
+  } catch (error) {
+    console.error(error)
+  }
+}
 
 const fetchPosts = async () => {
   const currentNickname = userNickname.value?.trim()
@@ -121,14 +139,23 @@ watch(
           <div>
             Лайков: {{ post.likes_count }} | Комментариев: {{ post.comments?.length || 0 }}
           </div>
-          <button
-            v-if="post.author_name === getCurrentNickname()"
-            class="text-rose-400 hover:text-rose-300 transition-colors cursor-pointer disabled:cursor-not-allowed"
-            :disabled="deletingPostId === post.id"
-            @click="handleDeletePost(post)"
-          >
-            {{ deletingPostId === post.id ? 'Удаление...' : 'Удалить пост' }}
-          </button>
+          <div class="flex items-center gap-3">
+            <button
+              class="flex items-center gap-1.5 transition-colors cursor-pointer hover:text-zinc-200"
+              @click="copyPostLink(post)"
+            >
+              <span>🔗</span>
+              <span>{{ copiedPostId === post.id ? 'Скопировано' : 'Ссылка' }}</span>
+            </button>
+            <button
+              v-if="post.author_name === getCurrentNickname()"
+              class="text-rose-400 hover:text-rose-300 transition-colors cursor-pointer disabled:cursor-not-allowed"
+              :disabled="deletingPostId === post.id"
+              @click="handleDeletePost(post)"
+            >
+              {{ deletingPostId === post.id ? 'Удаление...' : 'Удалить пост' }}
+            </button>
+          </div>
         </div>
       </article>
     </div>

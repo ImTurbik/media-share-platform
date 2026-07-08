@@ -83,6 +83,15 @@ async def get_posts():
         return [serialize_post(post) for post in posts]
 
 
+@app.get("/api/posts/{post_id}")
+async def get_post(post_id: int):
+    async with database.AsyncSessionLocal() as db:
+        post = await fetch_post_with_relations(db, post_id)
+        if not post:
+            raise HTTPException(status_code=404, detail="Пост не найден")
+        return serialize_post(post)
+
+
 @app.get("/api/users/{author_name}/posts")
 async def get_posts_by_author(author_name: str):
     author_name = author_name.strip()

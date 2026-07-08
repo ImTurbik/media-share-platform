@@ -1,78 +1,70 @@
 <script setup>
-import { inject, onMounted, reactive, ref } from 'vue'
+import { computed, inject, onMounted, ref, watch } from 'vue'
+import { useRoute } from 'vue-router'
 import { API_BASE_URL } from '@/config'
 import ImagePreview from '@/components/ImagePreview.vue'
 
-const posts = ref([])
-const isLoading = ref(true)
-const likingPostId = ref(null)
-const commentingPostId = ref(null)
-const deletingCommentId = ref(null)
-const openCommentsPostId = ref(null)
+const route = useRoute()
 const userNickname = inject('userNickname', ref(''))
-const commentTexts = reactive({})
-const copiedPostId = ref(null)
-let copyResetTimer = null
+const post = ref(null)
+const isLoading = ref(true)
+const likingPost = ref(false)
+const commentingPost = ref(false)
+const deletingCommentId = ref(null)
+const openComments = ref(false)
+const commentText = ref('')
+const errorMessage = ref('')
 
 const getCurrentNickname = () => userNickname.value?.trim() || ''
 
-const copyPostLink = async (post) => {
-  const postLink = `${window.location.origin}/post/${post.id}`
-  try {
-    await navigator.clipboard.writeText(postLink)
-    copiedPostId.value = post.id
-    if (copyResetTimer) {
-      clearTimeout(copyResetTimer)
-    }
-    copyResetTimer = setTimeout(() => {
-      copiedPostId.value = null
-    }, 1500)
-  } catch (error) {
-    console.error(error)
-  }
-}
+const postId = computed(() => Number(route.params.postId))
 
-const hasLiked = (post) => {
+const hasLiked = () => {
   const currentNickname = getCurrentNickname()
-  return Boolean(currentNickname && (post.liked_by || []).includes(currentNickname))
+  return Boolean(currentNickname && post.value && (post.value.liked_by || []).includes(currentNickname))
 }
 
-const normalizePost = (post) => ({
-  ...post,
-  liked_by: post.liked_by || [],
-  comments: post.comments || [],
+const normalizePost = (data) => ({
+  ...data,
+  liked_by: data.liked_by || [],
+  comments: data.comments || [],
 })
 
-const fetchPosts = async () => {
+const fetchPost = async () => {
   try {
     isLoading.value = true
-    const response = await fetch(`${API_BASE_URL}/api/posts`)
-    if (!response.ok) {
-      throw new Error('Не удалось загрузить ленту')
-    }
+    errorMessage.value = ''
+    const response = await fetch(`${API_BASE_URL}/api/posts/${postId.value}`)
     const data = await response.json()
-    posts.value = data.map(normalizePost)
+
+    if (!response.ok) {
+      throw new Error(data?.detail || 'Не удалось загрузить пост')
+    }
+
+    post.value = normalizePost(data)
   } catch (error) {
     console.error(error)
+    post.value = null
+    errorMessage.value = error.message || 'Не удалось загрузить пост'
   } finally {
     isLoading.value = false
   }
 }
 
-const handleLike = async (post) => {
+const handleLike = async () => {
   const currentNickname = getCurrentNickname()
-  if (!currentNickname || likingPostId.value === post.id) {
+  if (!currentNickname || !post.value || likingPost.value) {
     return
   }
 
   try {
-    likingPostId.value = post.id
+    likingPost.value = true
 
     const formData = new FormData()
     formData.append('author_name', currentNickname)
 
-    const endpoint = hasLiked(post) ? 'unlike' : 'like'
-    const response = await fetch(`${API_BASE_URL}/api/posts/${post.id}/${endpoint}`, {
+    const endpoint = hasLiked() ? 'unlike' : 'like'
+    const response = await fetch(`${API_BASE_URL}/api/posts/${post.value.id}/${endpoint}`, {
       method: 'POST',
       body: formData,
     })
@@ -83,32 +75,32 @@ const handleLike = async (post) => {
       throw new Error(data?.detail || 'Не удалось изменить лайк')
     }
 
-    post.likes_count = data.likes_count
-    post.liked_by = data.liked_by || []
+    post.value.likes_count = data.likes_count
+    post.value.liked_by = data.liked_by || []
   } catch (error) {
     console.error(error)
     alert(error.message || 'Не удалось изменить лайк')
   } finally {
-    likingPostId.value = null
+    likingPost.value = false
   }
 }
 
-const handleAddComment = async (post) => {
+const handleAddComment = async () => {
   const currentNickname = getCurrentNickname()
-  const text = (commentTexts[post.id] || '').trim()
+  const text = commentText.value.trim()
 
-  if (!currentNickname || !text || commentingPostId.value === post.id) {
+  if (!currentNickname || !post.value || !text || commentingPost.value) {
     return
   }
 
   try {
-    commentingPostId.value = post.id
+    commentingPost.value = true
 
     const formData = new FormData()
     formData.append('author_name', currentNickname)
     formData.append('text', text)
 
-    const response = await fetch(`${API_BASE_URL}/api/posts/${post.id}/comments`, {
+    const response = await fetch(`${API_BASE_URL}/api/posts/${post.value.id}/comments`, {
       method: 'POST',
       body: formData,
     })
@@ -119,17 +111,17 @@ const handleAddComment = async (post) => {
       throw new Error(data?.detail || 'Не удалось добавить комментарий')
     }
 
-    post.comments = [...post.comments, data.comment]
-    commentTexts[post.id] = ''
+    post.value.comments = [...post.value.comments, data.comment]
+    commentText.value = ''
   } catch (error) {
     console.error(error)
     alert(error.message || 'Не удалось добавить комментарий')
   } finally {
-    commentingPostId.value = null
+    commentingPost.value = false
   }
 }
 
-const handleDeleteComment = async (post, comment) => {
+const handleDeleteComment = async (comment) => {
   const currentNickname = getCurrentNickname()
   if (!currentNickname || currentNickname !== comment.author_name || deletingCommentId.value === comment.id) {
     return
@@ -139,7 +131,7 @@ const handleDeleteComment = async (post, comment) => {
     deletingCommentId.value = comment.id
 
     const response = await fetch(
-      `${API_BASE_URL}/api/posts/${post.id}/comments/${comment.id}?author_name=${encodeURIComponent(currentNickname)}`,
+      `${API_BASE_URL}/api/posts/${post.value.id}/comments/${comment.id}?author_name=${encodeURIComponent(currentNickname)}`,
       {
         method: 'DELETE',
       },
@@ -151,7 +143,7 @@ const handleDeleteComment = async (post, comment) => {
       throw new Error(data?.detail || 'Не удалось удалить комментарий')
     }
 
-    post.comments = post.comments.filter((item) => item.id !== comment.id)
+    post.value.comments = post.value.comments.filter((item) => item.id !== comment.id)
   } catch (error) {
     console.error(error)
     alert(error.message || 'Не удалось удалить комментарий')
@@ -160,40 +152,35 @@ const handleDeleteComment = async (post, comment) => {
   }
 }
 
-const toggleComments = (postId) => {
-  openCommentsPostId.value = openCommentsPostId.value === postId ? null : postId
-}
-
-onMounted(() => {
-  fetchPosts()
-})
+onMounted(fetchPost)
+watch(postId, fetchPost)
 </script>
 
 <template>
   <div class="max-w-xl mx-auto space-y-6">
-    <div class="flex justify-center">
-      <button @click="fetchPosts" class="inline-flex items-center justify-center rounded-lg bg-zinc-800 px-4 py-2 text-sm font-semibold text-zinc-100 shadow-md shadow-black/20 transition-colors hover:bg-zinc-700 active:bg-zinc-600 ">
-        Обновить ленту
-      </button>
+    <div v-if="isLoading" class="text-sm text-zinc-400">
+      Загрузка...
     </div>
 
-    <div 
-      v-for="post in posts" 
-      :key="post.id" 
-      class="bg-zinc-900 border border-zinc-800 rounded-xl overflow-hidden shadow-lg"
-    >
+    <div v-else-if="errorMessage" class="text-sm text-rose-400">
+      {{ errorMessage }}
+    </div>
+
+    <article v-else-if="post" class="bg-zinc-900 border border-zinc-800 rounded-xl overflow-hidden shadow-lg">
       <div class="px-4 py-3 bg-zinc-900/50 border-b border-zinc-800 flex justify-between items-center">
         <span class="font-bold text-emerald-400 text-sm">@{{ post.author_name }}</span>
-        <span class="text-xs text-zinc-500">{{ 
-        new Date(post.created_at + 'Z').toLocaleDateString('ru-RU', {
-          timeZone: 'Europe/Moscow',
-          day: '2-digit',
-          month: '2-digit',
-          year: 'numeric',
-          hour: '2-digit',
-          minute: '2-digit'
-          })
-        }}</span>
+        <span class="text-xs text-zinc-500">
+          {{
+            new Date(post.created_at + 'Z').toLocaleDateString('ru-RU', {
+              timeZone: 'Europe/Moscow',
+              day: '2-digit',
+              month: '2-digit',
+              year: 'numeric',
+              hour: '2-digit',
+              minute: '2-digit',
+            })
+          }}
+        </span>
       </div>
 
       <div v-if="post.content" class="p-4 text-zinc-200 text-sm leading-relaxed whitespace-pre-line">
@@ -208,17 +195,17 @@ onMounted(() => {
         <div class="flex gap-6 text-xs font-bold text-zinc-400 items-center">
           <button
             class="flex items-center gap-1.5 transition-colors cursor-pointer group disabled:cursor-not-allowed"
-            :class="hasLiked(post) ? 'text-rose-400' : 'text-zinc-500 hover:text-zinc-300'"
-            :disabled="!getCurrentNickname() || likingPostId === post.id"
-            @click="handleLike(post)"
+            :class="hasLiked() ? 'text-rose-400' : 'text-zinc-500 hover:text-zinc-300'"
+            :disabled="!getCurrentNickname() || likingPost"
+            @click="handleLike"
           >
-            <span>{{ hasLiked(post) ? '❤️' : '💔' }}</span>
+            <span>{{ hasLiked() ? '❤️' : '💔' }}</span>
             <span>{{ post.likes_count }}</span>
           </button>
           <button
             class="flex items-center gap-1.5 transition-colors cursor-pointer"
-            :class="openCommentsPostId === post.id ? 'text-emerald-400' : 'hover:text-emerald-400'"
-            @click="toggleComments(post.id)"
+            :class="openComments ? 'text-emerald-400' : 'hover:text-emerald-400'"
+            @click="openComments = !openComments"
           >
             <span>💬</span>
             <span>
@@ -228,29 +215,22 @@ onMounted(() => {
               </template>
             </span>
           </button>
-          <button
-            class="flex items-center gap-1.5 transition-colors cursor-pointer hover:text-zinc-200"
-            @click="copyPostLink(post)"
-          >
-            <span>🔗</span>
-            <span>{{ copiedPostId === post.id ? 'Скопировано' : 'Ссылка' }}</span>
-          </button>
         </div>
 
-        <div v-if="openCommentsPostId === post.id" class="mt-3 space-y-3">
-          <form class="space-y-2" @submit.prevent="handleAddComment(post)">
+        <div v-if="openComments" class="mt-3 space-y-3">
+          <form class="space-y-2" @submit.prevent="handleAddComment">
             <textarea
-              v-model="commentTexts[post.id]"
+              v-model="commentText"
               rows="2"
               placeholder="Комментарий..."
               class="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-emerald-500 text-zinc-100 transition-colors resize-none"
             ></textarea>
             <button
               type="submit"
-              :disabled="!getCurrentNickname() || commentingPostId === post.id"
+              :disabled="!getCurrentNickname() || commentingPost"
               class="bg-zinc-800 hover:bg-zinc-700 disabled:bg-zinc-800 disabled:text-zinc-500 text-zinc-100 font-semibold px-3 py-1.5 rounded-lg text-xs transition-colors cursor-pointer disabled:cursor-not-allowed"
             >
-              {{ commentingPostId === post.id ? 'Отправка...' : 'Добавить комментарий' }}
+              {{ commentingPost ? 'Отправка...' : 'Добавить комментарий' }}
             </button>
           </form>
 
@@ -266,7 +246,7 @@ onMounted(() => {
                   v-if="comment.author_name === getCurrentNickname()"
                   class="text-zinc-500 hover:text-rose-400 transition-colors cursor-pointer disabled:cursor-not-allowed"
                   :disabled="deletingCommentId === comment.id"
-                  @click="handleDeleteComment(post, comment)"
+                  @click="handleDeleteComment(comment)"
                 >
                   Удалить
                 </button>
@@ -292,6 +272,6 @@ onMounted(() => {
           </div>
         </div>
       </div>
-    </div>
+    </article>
   </div>
 </template>
