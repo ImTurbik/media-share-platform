@@ -1,6 +1,7 @@
 <script setup>
 import { inject, onMounted, reactive, ref } from 'vue'
 import { API_BASE_URL } from '@/config'
+import ImagePreview from '@/components/ImagePreview.vue'
 
 const posts = ref([])
 const isLoading = ref(true)
@@ -10,13 +11,6 @@ const deletingCommentId = ref(null)
 const openCommentsPostId = ref(null)
 const userNickname = inject('userNickname', ref(''))
 const commentTexts = reactive({})
-
-const getImageUrl = (imagePath) => {
-  if (!imagePath) return ''
-  if (/^https?:\/\//i.test(imagePath)) return imagePath
-  if (imagePath.startsWith('/')) return `${API_BASE_URL}${imagePath}`
-  return `${API_BASE_URL}/${imagePath}`
-}
 
 const getCurrentNickname = () => userNickname.value?.trim() || ''
 
@@ -159,10 +153,6 @@ onMounted(() => {
 
 <template>
   <div class="max-w-xl mx-auto space-y-6">
-    <!-- <h3 class="text-xl font-black text-white tracking-tight px-1">
-      А это лента публикаций :>
-    </h3> -->
-
     <div class="flex justify-center">
       <button @click="fetchPosts" class="inline-flex items-center justify-center rounded-lg bg-zinc-800 px-4 py-2 text-sm font-semibold text-zinc-100 shadow-md shadow-black/20 transition-colors hover:bg-zinc-700 active:bg-zinc-600 ">
         Обновить ленту
@@ -193,7 +183,7 @@ onMounted(() => {
       </div>
 
       <div v-if="post.image_path" class="border-t border-zinc-800 bg-zinc-950 flex justify-center items-center">
-        <img :src="getImageUrl(post.image_path)" alt="Картинка" class="w-full h-auto max-h-125 object-contain" />
+        <ImagePreview :src="`${API_BASE_URL}${post.image_path}`" alt="Картинка" />
       </div>
 
       <div class="px-4 py-2.5 bg-zinc-900/40 border-t border-zinc-800">

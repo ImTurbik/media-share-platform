@@ -1,18 +1,12 @@
 <script setup>
 import { inject, onMounted, ref, watch } from 'vue'
 import { API_BASE_URL } from '@/config'
+import ImagePreview from '@/components/ImagePreview.vue'
 
 const userNickname = inject('userNickname', ref(''))
 const profilePosts = ref([])
 const isLoading = ref(true)
 const deletingPostId = ref(null)
-
-const getImageUrl = (imagePath) => {
-  if (!imagePath) return ''
-  if (/^https?:\/\//i.test(imagePath)) return imagePath
-  if (imagePath.startsWith('/')) return `${API_BASE_URL}${imagePath}`
-  return `${API_BASE_URL}/${imagePath}`
-}
 
 const getCurrentNickname = () => userNickname.value?.trim() || ''
 
@@ -120,7 +114,7 @@ watch(
         </div>
 
         <div v-if="post.image_path" class="border-t border-zinc-800 bg-zinc-950 flex justify-center items-center">
-          <img :src="getImageUrl(post.image_path)" alt="Картинка" class="w-full h-auto max-h-125 object-contain" />
+          <ImagePreview :src="`${API_BASE_URL}${post.image_path}`" alt="Картинка" />
         </div>
 
         <div class="px-4 py-2.5 bg-zinc-900/40 border-t border-zinc-800 flex items-center justify-between gap-3 text-xs text-zinc-400">
