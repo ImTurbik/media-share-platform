@@ -2,6 +2,7 @@
 import { inject, onMounted, reactive, ref } from 'vue'
 import { API_BASE_URL } from '@/config'
 import ImagePreview from '@/components/ImagePreview.vue'
+import { copyTextToClipboard } from '@/utils/clipboard'
 
 const posts = ref([])
 const isLoading = ref(true)
@@ -19,7 +20,7 @@ const getCurrentNickname = () => userNickname.value?.trim() || ''
 const copyPostLink = async (post) => {
   const postLink = `${window.location.origin}/post/${post.id}`
   try {
-    await navigator.clipboard.writeText(postLink)
+    await copyTextToClipboard(postLink)
     copiedPostId.value = post.id
     if (copyResetTimer) {
       clearTimeout(copyResetTimer)
